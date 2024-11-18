@@ -1,24 +1,32 @@
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
+import Tile from './components/Tile';
+import GamePanel from './components/GamePanel';
+import GameTile from './components/GameTile';
+import styled from '@emotion/styled';
+
+const Row = styled.div`
+  width: 400px;
+  background-color: cyan;
+`;
+
+const Break = styled.div`
+  flex-basis: 100%;
+  height: 0;
+`
 
 function App() {
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      {/* <GamePanel> */}
+        {/* <Row> */}
+          <GameTile />
+          {/* <Tile bgColor='cyan' />
+          <Tile />
+          <Tile bgColor='cyan' /> */}
+        {/* </Row> */}
+      {/* </GamePanel> */}
     </div>
   );
 }
