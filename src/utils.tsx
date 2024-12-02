@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import { type GameItem } from "./components/GameTile";
-import { mapping } from './constants';
+import { mapping, opponentColors } from './constants';
 
 // const getWinnerBy = (items: GameItem[], source: string) => {
 //     const firstPlayerTiles = _.filter(items, item => item.color === source);
@@ -19,7 +19,13 @@ enum GameResult {
 };
 
 const getGameResult = (items: GameItem[]) => {
-    if (getWinnerNameBy(items, 'red') || getWinnerNameBy(items, 'cyan')) {
+    // console.log('cdsvfd', _.map(items, 'isOpened'));
+    let ra = '';
+    _.forEach(items, el => {
+        ra += el.isOpened ? 'YE; ' : 'NO; ';
+    });
+    console.log('_____CDL ', ra);
+    if (getLoserName(items)) {
         return GameResult.win;
     }
     if (_.every(items, _.property('isOpened'))) {
@@ -55,12 +61,31 @@ const getWinnerNameByOld = (items: GameItem[], source: string) => {
     return '';
 };
 
+const getLoserName = (items: GameItem[]) => {
+    let loser = getWinnerNameBy(items, 'red');
+    console.log(`1 ----- ${loser}`);
+    console.log(opponentColors);
+    if (loser) return mapping[_.get(opponentColors, loser)];
+    loser = getWinnerNameBy(items, 'cyan');
+    console.log(`2 ----- ${loser}`);
+    if (loser) return mapping[_.get(opponentColors, loser)];
+    return '';
+};
+
 const getWinnerName = (items: GameItem[]) => {
     let winner = getWinnerNameBy(items, 'red');
     if (winner !== '') return mapping[winner];
     winner = getWinnerNameBy(items, 'cyan');
     if (winner !== '') return mapping[winner];
     return '';
+};
+
+const filterOpenedTiles = (items: GameItem[]) => {
+    return _.filter(items, _.property('isOpened'));
+};
+
+const isFirstPlayerMove = (items: GameItem[]) => {
+    return filterOpenedTiles(items).length % 2 === 0;
 };
 
 const getWinnerNameBy = (items: GameItem[], source: string) => {
@@ -77,7 +102,6 @@ const getWinnerNameBy = (items: GameItem[], source: string) => {
         return source;
     }
     const diagonal = _.groupBy(firstPlayerTiles, item => `${item.x}x${item.y}`);
-    console.log('DIAF ', diagonal);
     let diagonalItems = [];
     // 2,0 1,1; 0,2
     // 4,0; 3,1; 2,2; 1,3; 0,4
@@ -136,7 +160,6 @@ const getWinnerNameBy = (items: GameItem[], source: string) => {
     // if (_.some(_.values(diagonal), openedTiles => openedTiles.length === 3)) {
     //     return source;
     // }
-    console.log('--------------NOPE---------------------');
     return '';
 
     // _.map(firstPlayerTiles, item => {
@@ -195,10 +218,32 @@ const getWinner = (items: GameItem[]) => {
     //     });
 };
 
+const couldWinNextStep = (items: GameItem[]) => {
+    const freeTiles = _.reject(items, (item) => item.isOpened);
+    
+    return _.some(freeTiles, tile => {
+        let nextItems =  _.cloneDeep(items);
+        nextItems = _.map(nextItems, item => item.x === tile.x && item.y === tile.y ? _.merge(item, { isOpened: true }) : item);
+        if (hasWinner(nextItems)) {
+            return true;
+        }
+
+        return false;
+        // const indexToOpen = _.findIndex(nextItems, item => item.x == tile.x && item.y === tile.y);
+        // if (indexToOpen > -1) {
+        //     nextItems.splice(indexToOpen, 1, nextItems[indexToOpen])
+        // }
+    });
+};
+
 export {
     getWinner,
     hasWinner,
     getWinnerName,
+    getLoserName,
     getGameResult,
+    filterOpenedTiles,
+    isFirstPlayerMove,
+    couldWinNextStep,
     GameResult,
 };
