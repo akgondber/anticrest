@@ -7,7 +7,7 @@ import {
     PanelResizeHandle
 } from 'react-resizable-panels';
 import { Apple, BadgeDollarSign, BadgeEuro, Camera } from 'lucide-react';
-import { Button, Card, Divider, Radio, Row } from 'antd';
+import { Affix, Anchor, Button, Card, Col, Divider, Radio, Row, Switch } from 'antd';
 import { create } from "zustand";
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -20,6 +20,7 @@ import { Merge } from "type-fest";
 import { Combos, Conta, ContaItem, Movement } from "../emotis/combos";
 import { useInterval } from 'usehooks-ts';
 import delay from "delay";
+import { makeStep } from "../engine/medium-level-robot";
 
 type TileProps = {
     bgColor?: string;
@@ -36,7 +37,11 @@ const Tile = styled.div`
 const Break = styled.div`
   flex-basis: 100%;
   height: 0;
-`
+`;
+
+const Gu = styled.div`
+    background-color: cyan;
+`;
 
 type GameItem = {
     id: string;
@@ -70,6 +75,7 @@ type BoardStateProps = {
     nextStepWinner: boolean;
     items: Array<GameItem>;
     openTile: (id: string) => any;
+    reset: () => any,
     setColor: any;
     automaticRun: any;
     checkOver: any;
@@ -182,6 +188,12 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
     toggleAgainstRobot: () => set((state: BoardStateProps) => {
         state.isAgainsRobot = !state.isAgainsRobot;
     }),
+    reset: () => set((state: BoardStateProps) => {
+        state.items = hop;
+        state.gameIndex = 0;
+        state.isOver = false;
+        state.isAutoPlay = false;
+    }),
     openTile: (id: string) => set((state: BoardStateProps) => {
         console.log('dsdsvd', id);
         state.items = _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove(state.items) ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
@@ -217,13 +229,34 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         // }
     }),
     makeRobotMove: () => set((state: BoardStateProps) => {
+        if (_.reject(state.items, item => item.isOpened).length === 0) {
+            return;
+        }
         const allowedTiles = _.reject(state.items, (el) => el.isOpened === true);
-        const rndTile = _.sample(allowedTiles);
-        console.log('________________________L<AKKKKKKKKKKKKKKKKKKKKKKKKKKKK____________________________');
-        console.log('RNRND', rndTile!.id);
-        if (rndTile) {
+        // const hasWi = couldWinNextStep(state.items);
+        // if (hasWi) {
+        //     _.find(state.items, (el) => {
+        //         const nop = _.reject(state.items, _.property('isOpened'));
+        //         _.filter(nop, (ele) => {
+        //             return ele.isOpened ? { ...ele, isOpened: true } : ele;
+        //         });
+        //     });
+        // }
+
+        
+        let calculatedTile = makeStep(state.items, 'cyan');
+
+        if (!calculatedTile) {
+            calculatedTile = _.sample(allowedTiles);
+        }
+        // else {
+        //     calculatedTile = 
+        // }
+        // console.log('________________________L<AKKKKKKKKKKKKKKKKKKKKKKKKKKKK____________________________');
+
+        if (calculatedTile) {
             console.log('DSY');
-            state.items = _.map(state.items, (elem) => elem.id === rndTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove(state.items) ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
+            state.items = _.map(state.items, (elem) => elem.id === calculatedTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove(state.items) ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
             // state.openTile(rndTile!.id);
             // state.items = _.map(state.items, (elem) => elem.id === rndTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
             // state.openTile(rndTile.id);
@@ -316,6 +349,7 @@ const GameTile = () => {
     const willWinnerNextStep = useTileStore((state: TileStateProps) => state.willWinnerNextStep);
     const makeRobotMove = useTileStore((state: TileStateProps) => state.makeRobotMove);
     const toggleAgainstRobot = useTileStore((state: TileStateProps) => state.toggleAgainstRobot);
+    const reset = useTileStore((state: TileStateProps) => state.reset);
 
     const unsub = useTileStore.subscribe((state: TileStateProps) => {     // @ts-ignore
         return state.items;
@@ -325,13 +359,15 @@ const GameTile = () => {
         // }
     }, (va: any) => {
         checkOver();
-        console.log('YYYYYYYYYYYYYYY', va);
+        // console.log('YYYYYYYYYYYYYYY', va);
     }, { equalityFn: _.isEqual });
 
     useInterval(() => {
         automaticRun();
         // checkOver();
     }, isAutoPlay ? gameDelay : null);
+    const [tp, setTp] = useState<number>(100);
+    const [bt, setBt] = useState<number>(100);
 
     return <PanelGroup direction='horizontal'>
         <>
@@ -350,13 +386,6 @@ const GameTile = () => {
                 </Conta>
                 <Conta>
                     <ContaItem>
-                        {
-                            isAgainsRobot &&
-                                <Radio checked={isAgainsRobot}>
-                                    Against Robot
-                                </Radio>
-                        }
-                        
                         <Button
                             onClick={() => {
                                 toggleInterval();
@@ -365,30 +394,37 @@ const GameTile = () => {
                             {
                                 isOver ?
                                     'Rnn' :
-                                    isAutoPlay ? 'Stop' : 'Start'
+                                    isAutoPlay ? 'Stop' : 'Start automatic'
                             }
                         </Button>
+                        
                         <Button onClick={() => {
                             unsub();
                         }}>
                             Natsas
                         </Button>
+                        
+                        
                         <Button onClick={() => {
                             startNewRound();
                         }}>
                             Start new round
                         </Button>
-                        <Button onClick={() => {
-                            toggleAgainstRobot();
-                        }}>
-                            Against Robot
-                        </Button>
+
+                        <Switch defaultChecked={false} checkedChildren='Against robot' unCheckedChildren='Against robot' onChange={() => {
+                                toggleAgainstRobot();
+                            }}>Ag rob
+                        </Switch>
+                        <Row>
+                            <Button onClick={() => reset()}>
+                                Reset
+                            </Button>
+                        </Row>
                     </ContaItem>
                 </Conta>
                 <Conta>
                     <ContaItem>
                         <p>{winner}</p>
-                        <p>{gameIndex}</p>
                     </ContaItem>
                     <ContaItem>
                         <Combos>
@@ -410,17 +446,10 @@ const GameTile = () => {
             <GamePanel isOver={isOver}>
                 {isOver ? 
                     <>
-                        <div>
-                            Game is over
-                        </div>
                         {winner !== '' ?
-                            <Card>
-                                <p>Winner</p>
-                                {
-                                    winner === 'Player 1' ? <BadgeDollarSign /> : <BadgeEuro />
-                                }
-                                <p>{winner}</p>
-                            </Card> :
+                            <Row>
+                                <p>Winner: {winner}</p>
+                            </Row> :
                             <Card>Draw</Card>}
                     </> :
                     <Row>
@@ -442,12 +471,12 @@ const GameTile = () => {
                                     
                                     // checkOver();
                                     console.log('___________HGAHSX');
-                                    if (isAgainsRobot || true) {
-                                        console.log('Robot mvm');
+                                    if (isAgainsRobot) {
+                                        console .log('Robot mvm');
                                         makeRobotMove();
                                         console.log('Robot mvm ----END');
                                     }
-                                    willWinnerNextStep();
+                                    // willWinnerNextStep();
                                 }
                             }}>
                                 {item.x === 1 ? <Camera /> : <Apple />}
@@ -458,12 +487,12 @@ const GameTile = () => {
                                 openTile(item.id);
                                 // checkOver();
                                 console.log('HGAHSX');
-                                if (isAgainsRobot || true) {
+                                if (isAgainsRobot) {
                                     console.log('Robot mvm');
                                     makeRobotMove();
                                     console.log('Robot mvm ----END');
                                 }
-                                willWinnerNextStep();
+                                // willWinnerNextStep();
                             }
                         }}>
                             {item.x === 1 ? <Camera /> : <Apple />}

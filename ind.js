@@ -91,3 +91,15 @@ console.log(_.merge({a: 3}, {a: 4}));
 const tr = [{iO: true}];
 const tr2 = [{iO: false}, {iO: true}, {iO: true}];
 console.log(_.countBy(tr2, v => v.iO));
+const nae = [
+    {x: 0, y: 0, color: 'red'},
+    {x: 1, y: 0, color: 'cyan'},
+    {x: 2, y: 0, color: 'red'},
+    {x: 1, y: 1, color: 'red'},
+];
+console.log(_.chain(nae).filter(el => el.color === 'red').groupBy((el) => `xx${el.y}`).value());
+console.log(_.difference([1, 2, 3], [1]));
+
+let colorItems = ['re', 'gt'];
+console.log(_.spread(_.merge)(_.map(colorItems, (item, i) => ( { [item]: colorItems[(i+1)%2] })))['re']);
+

@@ -13,13 +13,15 @@ const Combos = styled.div`
 const Conta = styled.div`
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
     align-items: center;
 `;
 
 const ContaItem = styled.div`
+    margin-top: 14px;
+    padding-top: 14px;
     display: flex;
     flex-direction: column;
-    align-items: center;
 `;
 
 const Movement = styled.a`
