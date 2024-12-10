@@ -7,14 +7,14 @@ import {
     PanelResizeHandle
 } from 'react-resizable-panels';
 import { Apple, BadgeDollarSign, BadgeEuro, Camera } from 'lucide-react';
-import { Affix, Anchor, Button, Card, Col, Divider, Radio, Row, Switch } from 'antd';
+import { Affix, Anchor, Button, Card, Col, Divider, Flex, Radio, Row, Steps, Switch } from 'antd';
 import { create } from "zustand";
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { useState } from "react";
 import styled from "@emotion/styled";
 import _, { first, take } from 'lodash';
-import GamePanel from "./GamePanel";
+import GamePanel, { StatusPanel } from "./GamePanel";
 import { couldWinNextStep, filterOpenedTiles, GameResult, getGameResult, getLoserName, getWinner, getWinnerName, hasWinner, isFirstPlayerMove } from "../utils";
 import { Merge } from "type-fest";
 import { Combos, Conta, ContaItem, Movement } from "../emotis/combos";
@@ -43,6 +43,17 @@ const Gu = styled.div`
     background-color: cyan;
 `;
 
+const BoardWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    background-color: ${props => props.isOver ? 'cyan' : ''};
+`;
+
+const running = 'running';
+const over = 'over';
+
+type GameStatus = running | over | 'waiting';
+
 type GameItem = {
     id: string;
     sign: string,
@@ -65,6 +76,7 @@ type BoardStateProps = {
     makeB: any;
     gameIndex: number;
     gameDelay: number;
+    gameStatus: GameStatus;
     isOver: boolean;
     isAutoPlay: boolean;
     isAgainsRobot: boolean;
@@ -151,6 +163,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
     winner: '',
     nextStepWinner: true,
     gameIndex: 0,
+    gameStatus: 'waiting',
     isOver: false,
     isAutoPlay: false,
     isAgainsRobot: false,
@@ -178,8 +191,6 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
 
         if (hasWinner(state.items)) {
             state.winner = getWinnerName(state.items);
-        } else {
-            state.gameIndex++;
         }
     }),
     checkNextStep: () => set((state: BoardStateProps) => {
@@ -193,6 +204,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         state.gameIndex = 0;
         state.isOver = false;
         state.isAutoPlay = false;
+        state.gameStatus = 'waiting';
     }),
     openTile: (id: string) => set((state: BoardStateProps) => {
         console.log('dsdsvd', id);
@@ -243,7 +255,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         //     });
         // }
 
-        
+
         let calculatedTile = makeStep(state.items, 'cyan');
 
         if (!calculatedTile) {
@@ -262,7 +274,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
             // state.openTile(rndTile.id);
             // state.items = _.map(state.items, item => _.isEqual(item, rndTile) ? _.merge(item, { isOpened: true }) : item);
         }
-        
+
     }),
     // (state: TileStateProps) => state ({...state, gameIndex: state.gameIndex + 1, items: _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? {...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a'} as GameItem : elem)})),
     setColor: (id: string, color: string) => set((state: BoardStateProps) => {
@@ -306,6 +318,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         state.items = hop;
         state.isOver = false;
         state.winner = '';
+        state.gameStatus = 'running';
     }),
     toggleInterval: () => set((state: BoardStateProps) => {
         if (!state.isAutoPlay) {
@@ -332,6 +345,7 @@ const GameTile = () => {
     const makeB = useTileStore((state: TileStateProps) => state.makeB);
     const sign = useTileStore((state: TileStateProps) => state.sign);
     const gameIndex = useTileStore((state: TileStateProps) => state.gameIndex);
+    const gameStatus = useTileStore((state: TileStateProps) => state.gameStatus);
     const gameDelay = useTileStore((state: TileStateProps) => state.gameDelay);
     const firstPlayerName = useTileStore((state: TileStateProps) => state.firstPlayerName);
     const secondPlayerName = useTileStore((state: TileStateProps) => state.secondPlayerName);
@@ -372,20 +386,34 @@ const GameTile = () => {
     return <PanelGroup direction='horizontal'>
         <>
             <Panel id='sidebar' minSize={10} maxSize={20} order={1}>
-                <Conta>
-                    <ContaItem>
+                <Flex align="center" justify="center">
+                    <Col>
+                    <Row>
+                        <p>GI: {gameIndex}</p>
+                    </Row>
+                    <Row>
                         <p>
-                            GI: {gameIndex}
                             {
                                 isOver
                                     ? 'Game is ove'
                                     : (gameIndex % 2 === 0 ? firstPlayerName : secondPlayerName) + "'s turn"
                             }
+
                         </p>
-                    </ContaItem>
-                </Conta>
-                <Conta>
-                    <ContaItem>
+                    </Row>
+                    <Row>
+                        {
+                            gameStatus === 'running' ? 'Running' : 'Click start nw round'
+                        }
+                    </Row>
+                    <Row>
+                        <p>Game Status: {gameStatus}</p>
+                    </Row>
+                    </Col>
+                </Flex>
+                <Flex align="center" justify="center">
+                <Col>
+                    <Row>
                         <Button
                             onClick={() => {
                                 toggleInterval();
@@ -394,39 +422,45 @@ const GameTile = () => {
                             {
                                 isOver ?
                                     'Rnn' :
-                                    isAutoPlay ? 'Stop' : 'Start automatic'
+                                    isAutoPlay ? 'Stop' : 'Make automatic play'
                             }
                         </Button>
-                        
-                        <Button onClick={() => {
+                    </Row>
+                    <Row>
+                        <Button hidden={true} onClick={() => {
                             unsub();
+                            if (true) {
+
+                            }
                         }}>
-                            Natsas
+                            Not click
                         </Button>
-                        
-                        
+                    </Row>
+
+                    <Row>
                         <Button onClick={() => {
                             startNewRound();
                         }}>
                             Start new round
                         </Button>
-
-                        <Switch defaultChecked={false} checkedChildren='Against robot' unCheckedChildren='Against robot' onChange={() => {
-                                toggleAgainstRobot();
-                            }}>Ag rob
-                        </Switch>
-                        <Row>
-                            <Button onClick={() => reset()}>
-                                Reset
-                            </Button>
-                        </Row>
-                    </ContaItem>
-                </Conta>
-                <Conta>
-                    <ContaItem>
+                    </Row>
+                    <Row>
+                        <Switch defaultChecked={false} disabled={gameStatus === 'running'} checkedChildren='Against robot' unCheckedChildren='Against robot' onChange={() => {
+                            toggleAgainstRobot();
+                        }} />
+                    </Row>
+                    <Row>
+                        <Button onClick={() => reset()}>
+                            Reset
+                        </Button>
+                    </Row>
+                </Col>
+                </Flex>
+                <Flex>
+                    <Col>
                         <p>{winner}</p>
-                    </ContaItem>
-                    <ContaItem>
+                    </Col>
+                    <Col>
                         <Combos>
                             {
                                 _.chunk(takenCombinations, 2).map((el: string[], i: number) => (
@@ -436,43 +470,49 @@ const GameTile = () => {
                                 ))
                             }
                         </Combos>
-                    </ContaItem>
-
-                </Conta>
+                    </Col>
+                </Flex>
             </Panel>
             <PanelResizeHandle />
         </>
-        <Panel minSize={25}>
-            <GamePanel isOver={isOver}>
-                {isOver ? 
-                    <>
-                        {winner !== '' ?
-                            <Row>
-                                <p>Winner: {winner}</p>
-                            </Row> :
-                            <Card>Draw</Card>}
-                    </> :
+        <Panel minSize={25} color="orange">
+            <StatusPanel>
+                <Steps
+                    current={gameStatus === 'over' ? 2 : gameStatus === 'running' ? 1 : 0}
+                    items={[
+                        {
+                            title: 'Waiting',
+                            description: gameStatus !== running ? 'Click Start new round to start a new round' : '',
+                        },
+                        {
+                            title: 'In progress',
+                            description: `Turn: ${_.filter(items, (item) => item.isOpened).length % 2 === 0 ? 'Player 1' : 'Player 2'}`,
+                        },
+                        {
+                            title: 'Finished',
+                            description: 'Game is over',
+                        }
+                    ]}
+                >
+                </Steps>
+                {isOver && winner !== '' ?
                     <Row>
-                        <Card color={gameIndex % 2 === 0 ? 'green' : 'grey'}>
-                            <BadgeDollarSign color={gameIndex % 2 === 0 ? 'green' : 'grey'} /> 
-                        </Card>
-                        <Card color={gameIndex % 2 === 0 ? 'grey' : 'green'}>
-                            <BadgeEuro color={gameIndex % 2 === 0 ? 'grey' : 'green'} /> 
-                        </Card>
-                    </Row>
+                        <p>Winner: {winner}</p>
+                    </Row> :
+                    null
                 }
+            </StatusPanel>
+            <GamePanel isOver={isOver}>
+
                 {items.map((item, ind) => {
                     return ind % 5 === 0 ?
                         <>
                             <Break />
-                            <Tile key={ind} bgColor={item.color} onClick={() => {
-                                if (!item.isOpened && !isOver) {
+                            <Tile key={ind} bgColor={item.color} onClick={async () => {
+                                if (!item.isOpened && !isOver && !isAutoPlay) {
                                     openTile(item.id);
-                                    
-                                    // checkOver();
-                                    console.log('___________HGAHSX');
+                                    checkOver();
                                     if (isAgainsRobot) {
-                                        console .log('Robot mvm');
                                         makeRobotMove();
                                         console.log('Robot mvm ----END');
                                     }
@@ -485,8 +525,7 @@ const GameTile = () => {
                         <Tile key={ind} bgColor={item.color} onClick={() => {
                             if (!item.isOpened && !isOver) {
                                 openTile(item.id);
-                                // checkOver();
-                                console.log('HGAHSX');
+                                checkOver();
                                 if (isAgainsRobot) {
                                     console.log('Robot mvm');
                                     makeRobotMove();

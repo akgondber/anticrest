@@ -3,7 +3,6 @@ import { GameItem } from "../components/GameTile";
 import { opponentColors } from "../constants";
 
 const canWinHorizontal = (items: GameItem[], playerColor = 'red') => {
-    console.log('CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC');
     const gameSize = _.get(_.last(_.sortBy(items, _.property('x'))), 'x');
     const groupedHorizontally = _.chain(items).filter((el) => el.color === playerColor).groupBy((el) => `${el.x}xy`).value();
     let result = _.some(_.values(groupedHorizontally), (tiles) => tiles.length === gameSize);
@@ -11,12 +10,15 @@ const canWinHorizontal = (items: GameItem[], playerColor = 'red') => {
 };
 
 const canWinVertical = (items: GameItem[], playerColor = 'red') => {
-    console.log('CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC');
     const gameSize = _.get(_.last(_.sortBy(items, _.property('y'))), 'y');
     const groupedHorizontally = _.chain(items).filter((el) => el.color === playerColor).groupBy((el) => `xx${el.y}`).value();
     let result = _.some(_.values(groupedHorizontally), (tiles) => tiles.length === gameSize);
     return result;
 };
+
+const canWinDiagonal = (items: GameItem[], playerColor = 'red') => {
+    return true;
+}
 
 const getFirstHorizontalTileGivingWin = (items: GameItem[], playerColor = 'red') => {
     const groupedHorizontally = _.chain(items).filter((el) => el.color === playerColor).groupBy((el) => `${el.x}xy`).value();
