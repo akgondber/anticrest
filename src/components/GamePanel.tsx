@@ -15,8 +15,8 @@ const StatusPanel = styled.div`
 `;
 
 const GamePanel = styled.div`
-    height: 80%;
-    filter: ${(props: GamePanelProps) => props.isOver ? 'blur(5px)' : ''};
+    height: 40%;
+    filter: ${(props: GamePanelProps) => props.isOver ? 'blur(5px)' : 'blur(20px)'};
     display: flex;
     flex-wrap: wrap;
     justify-content: center;

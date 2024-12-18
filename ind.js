@@ -102,4 +102,10 @@ console.log(_.difference([1, 2, 3], [1]));
 
 let colorItems = ['re', 'gt'];
 console.log(_.spread(_.merge)(_.map(colorItems, (item, i) => ( { [item]: colorItems[(i+1)%2] })))['re']);
+const itas = [{u: 4, r: 2, b: 23}, {u: 2, r: 5, b: 78}, {u: 24, r: 2, b: 23}];
+const itas2 = [{u: 2, r: 2, b: 23}, {u: 2, r: 5, b: 78}, {u: 24, r: 2, b: 23}];
+console.log(_.find(itas, {'u': 2, r: 3}));
+console.log(_.chunk(itas, 2));
+console.log(_.isEqual(itas, itas2));
+
 

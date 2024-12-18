@@ -7,7 +7,7 @@ import {
     PanelResizeHandle
 } from 'react-resizable-panels';
 import { Apple, BadgeDollarSign, BadgeEuro, Camera } from 'lucide-react';
-import { Affix, Anchor, Button, Card, Col, Divider, Flex, Radio, Row, Steps, Switch } from 'antd';
+import { Affix, Anchor, Button, Card, Col, Divider, Flex, Input, Radio, Row, Steps, Switch } from 'antd';
 import { create } from "zustand";
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -15,7 +15,7 @@ import { useState } from "react";
 import styled from "@emotion/styled";
 import _, { first, take } from 'lodash';
 import GamePanel, { StatusPanel } from "./GamePanel";
-import { couldWinNextStep, filterOpenedTiles, GameResult, getGameResult, getLoserName, getWinner, getWinnerName, hasWinner, isFirstPlayerMove } from "../utils";
+import { couldWinNextStep, filterOpenedTiles, GameResult, getChunkedMovements, getGameResult, getLoserName, getWinner, getWinnerName, hasWinner, isFirstPlayerMove } from "../utils";
 import { Merge } from "type-fest";
 import { Combos, Conta, ContaItem, Movement } from "../emotis/combos";
 import { useInterval } from 'usehooks-ts';
@@ -27,8 +27,8 @@ type TileProps = {
 };
 
 const Tile = styled.div`
-    width: 35px;
-    height: 35px;
+    width: 15px;
+    height: 15px;
     padding: 20px;
     margin: 20px;
     background-color: ${(props: TileProps) => props.bgColor || 'red'};
@@ -86,8 +86,10 @@ type BoardStateProps = {
     hasNextWinner: boolean;
     nextStepWinner: boolean;
     items: Array<GameItem>;
+    displayingRoundMovementsNumber: number;
     openTile: (id: string) => any;
-    reset: () => any,
+    reset: () => any;
+    bar: number;
     setColor: any;
     automaticRun: any;
     checkOver: any;
@@ -102,9 +104,8 @@ type BoardStateProps = {
     makeRobotMove: any;
     gameIntervalId?: ReturnType<typeof setInterval>;
     toggleInterval?: any;
+    changeDisplayingRoundMovementsNumber: () => {},
 }
-
-type TileStateProps = BoardStateProps;
 
 const asyncTimeout = (ms: number) => {
     return new Promise((resolve) => {
@@ -164,9 +165,11 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
     nextStepWinner: true,
     gameIndex: 0,
     gameStatus: 'waiting',
+    bar: 0,
     isOver: false,
     isAutoPlay: false,
     isAgainsRobot: false,
+    displayingRoundMovementsNumber: 1,
     takenCombinations: [],
     gameDelay: 1000,
     items: hop, //_.times(9, () => ({ id: _.uniqueId(), sign: 'a', color: 'orange', isOpened: false, x: 0, y: 0 })),
@@ -185,6 +188,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
 
         if (w !== GameResult.none) {
             state.isOver = true;
+            state.gameStatus = over;
             state.winner = w + ' - ' + getLoserName(state.items);
             state.isAutoPlay = false;
         }
@@ -207,8 +211,14 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         state.gameStatus = 'waiting';
     }),
     openTile: (id: string) => set((state: BoardStateProps) => {
-        console.log('dsdsvd', id);
-        state.items = _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove(state.items) ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
+        const tileToOpen = _.find(state.items, {id: id, isOpened: false});
+        if (tileToOpen) {
+            const color = isFirstPlayerMove(state.items) ? 'red' : 'cyan';
+            state.roundSteps[state.roundSteps.length-1].push({step: `${tileToOpen.x}x${tileToOpen.y}`, color });
+            // appendMovement(`${tileToOpen.x}x${tileToOpen.y}`);
+            state.items = _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? { ...elem, isOpened: true, color, sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
+        }
+        
         // const firstPlayerTiles = _.filter(state.items, item => item.color === 'red');
         // let firstWin = false;
         // let secondWin = false;
@@ -264,10 +274,13 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         // else {
         //     calculatedTile = 
         // }
-        // console.log('________________________L<AKKKKKKKKKKKKKKKKKKKKKKKKKKKK____________________________');
+        // console.log('________________________L<AKKKKKKKKKKKKKKKKKKKKKKKKKKKK>____________________________');
 
         if (calculatedTile) {
-            console.log('DSY');
+            // console.log('DSY');
+            // get().openTile(calculatedTile);
+            const color = isFirstPlayerMove(state.items) ? 'red' : 'cyan';
+            state.roundSteps[state.roundSteps.length-1].push({step: `${calculatedTile.x}x${calculatedTile.y}`, color });
             state.items = _.map(state.items, (elem) => elem.id === calculatedTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove(state.items) ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
             // state.openTile(rndTile!.id);
             // state.items = _.map(state.items, (elem) => elem.id === rndTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
@@ -276,7 +289,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         }
 
     }),
-    // (state: TileStateProps) => state ({...state, gameIndex: state.gameIndex + 1, items: _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? {...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a'} as GameItem : elem)})),
+    // (state: BoardStateProps) => state ({...state, gameIndex: state.gameIndex + 1, items: _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? {...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a'} as GameItem : elem)})),
     setColor: (id: string, color: string) => set((state: BoardStateProps) => {
         state.gameIndex = 3;
     }),
@@ -285,13 +298,14 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
             return;
         }
 
-        const notOpened = _.filter(state.items, obj => !obj.isOpened);
+        const notOpened = _.filter(state.items, (obj: GameItem) => !obj.isOpened);
         const randomItem = _.sample(notOpened);
 
         // await asyncTimeout(1500);
 
         if (randomItem) {
-            state.items = _.map(state.items, (elem) => elem.id === randomItem.id && !elem.isOpened ? { ...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
+            const isFirstPlayerMove = _.filter(state.items, (item: GameItem) => item.isOpened).length % 2 === 0;
+            state.items = _.map(state.items, (elem) => elem.id === randomItem.id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
             state.gameIndex++;
             state.appendMovement(`${randomItem.x}x${randomItem.y}`);
             state.takenCombinations.push(`${randomItem.x}x${randomItem.y}`);
@@ -302,7 +316,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
     appendMovement: (move: string) => set((state: BoardStateProps) => {
         state.roundSteps[state.roundSteps.length - 1].push(move);
     }),
-    //     (set(state: TileStateProps) => {
+    //     (set(state: BoardStateProps) => {
     //     return {...state, items: _.map(state.items, (b) => b.id === id ? b : {...b, color: color})}
     // }))),
     makeB: () => set((state: BoardStateProps) => ({ sign: state.sign === 'a' ? 'b' : state.sign === 'b' ? 'c' : 'a' })),
@@ -313,7 +327,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         state.roundSteps.push([]);
     }),
     startNewRound: () => set((state: BoardStateProps) => {
-        state.roundSteps = [[]];
+        state.roundSteps.push([]);
         state.hasNextWinner = false;
         state.items = hop;
         state.isOver = false;
@@ -339,42 +353,54 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         //     }, 1500);
         // }
     }),
+    changeDisplayingRoundMovementsNumber: (value: number) => set((state: BoardStateProps) => {
+        if (value > 0 && value <= state.roundSteps.length) {
+            console.log('setting', value);
+            state.displayingRoundMovementsNumber = value;
+        } else {
+            console.log('Not setting', value);
+        }
+    })
 }))));
 
 const GameTile = () => {
-    const makeB = useTileStore((state: TileStateProps) => state.makeB);
-    const sign = useTileStore((state: TileStateProps) => state.sign);
-    const gameIndex = useTileStore((state: TileStateProps) => state.gameIndex);
-    const gameStatus = useTileStore((state: TileStateProps) => state.gameStatus);
-    const gameDelay = useTileStore((state: TileStateProps) => state.gameDelay);
-    const firstPlayerName = useTileStore((state: TileStateProps) => state.firstPlayerName);
-    const secondPlayerName = useTileStore((state: TileStateProps) => state.secondPlayerName);
-    const items = useTileStore((state: TileStateProps) => state.items);
-    const isOver = useTileStore((state: TileStateProps) => state.isOver);
-    const isAgainsRobot = useTileStore((state: TileStateProps) => state.isAgainsRobot);
-    const isAutoPlay = useTileStore((state: TileStateProps) => state.isAutoPlay);
-    const takenCombinations = useTileStore((state: TileStateProps) => state.takenCombinations);
-    const winner = useTileStore((state: TileStateProps) => state.winner);
-    const openTile = useTileStore((state: TileStateProps) => state.openTile);
-    const checkOver = useTileStore((state: TileStateProps) => state.checkOver);
-    const automaticRun = useTileStore((state: TileStateProps) => state.automaticRun);
-    const toggleInterval = useTileStore((state: TileStateProps) => state.toggleInterval);
-    const startNewRound = useTileStore((state: TileStateProps) => state.startNewRound);
-    const willWinnerNextStep = useTileStore((state: TileStateProps) => state.willWinnerNextStep);
-    const makeRobotMove = useTileStore((state: TileStateProps) => state.makeRobotMove);
-    const toggleAgainstRobot = useTileStore((state: TileStateProps) => state.toggleAgainstRobot);
-    const reset = useTileStore((state: TileStateProps) => state.reset);
+    const makeB = useTileStore((state: BoardStateProps) => state.makeB);
+    const sign = useTileStore((state: BoardStateProps) => state.sign);
+    const gameIndex = useTileStore((state: BoardStateProps) => state.gameIndex);
+    const gameStatus = useTileStore((state: BoardStateProps) => state.gameStatus);
+    const gameDelay = useTileStore((state: BoardStateProps) => state.gameDelay);
+    const firstPlayerName = useTileStore((state: BoardStateProps) => state.firstPlayerName);
+    const secondPlayerName = useTileStore((state: BoardStateProps) => state.secondPlayerName);
+    const items = useTileStore((state: BoardStateProps) => state.items);
+    const isOver = useTileStore((state: BoardStateProps) => state.isOver);
+    const isAgainsRobot = useTileStore((state: BoardStateProps) => state.isAgainsRobot);
+    const isAutoPlay = useTileStore((state: BoardStateProps) => state.isAutoPlay);
+    const displayingRoundMovementsNumber = useTileStore((state: BoardStateProps) => state.displayingRoundMovementsNumber);
+    const takenCombinations = useTileStore((state: BoardStateProps) => state.takenCombinations);
+    const winner = useTileStore((state: BoardStateProps) => state.winner);
+    const openTile = useTileStore((state: BoardStateProps) => state.openTile);
+    const checkOver = useTileStore((state: BoardStateProps) => state.checkOver);
+    const automaticRun = useTileStore((state: BoardStateProps) => state.automaticRun);
+    const toggleInterval = useTileStore((state: BoardStateProps) => state.toggleInterval);
+    const startNewRound = useTileStore((state: BoardStateProps) => state.startNewRound);
+    const willWinnerNextStep = useTileStore((state: BoardStateProps) => state.willWinnerNextStep);
+    const makeRobotMove = useTileStore((state: BoardStateProps) => state.makeRobotMove);
+    const toggleAgainstRobot = useTileStore((state: BoardStateProps) => state.toggleAgainstRobot);
+    const roundSteps = useTileStore((state: BoardStateProps) => state.roundSteps);
+    const reset = useTileStore((state: BoardStateProps) => state.reset);
+    const changeDisplayingRoundMovementsNumber = useTileStore((state: BoardStateProps) => state.changeDisplayingRoundMovementsNumber);
 
-    const unsub = useTileStore.subscribe((state: TileStateProps) => {     // @ts-ignore
+    const unsub = useTileStore.subscribe((state: BoardStateProps) => {     // @ts-ignore
         return state.items;
-        console.log('sas======', state);
         // return (a: any) => {
         //     console.log('================', a);
         // }
     }, (va: any) => {
+        console.log('sas======', va);
         checkOver();
         // console.log('YYYYYYYYYYYYYYY', va);
     }, { equalityFn: _.isEqual });
+    // useTileStore.
 
     useInterval(() => {
         automaticRun();
@@ -386,12 +412,11 @@ const GameTile = () => {
     return <PanelGroup direction='horizontal'>
         <>
             <Panel id='sidebar' minSize={10} maxSize={20} order={1}>
-                <Flex align="center" justify="center">
+                <Flex vertical gap="middle" align="center" justify="center">
                     <Col>
-                    <Row>
                         <p>GI: {gameIndex}</p>
-                    </Row>
-                    <Row>
+                    </Col>
+                    <Col>
                         <p>
                             {
                                 isOver
@@ -400,20 +425,12 @@ const GameTile = () => {
                             }
 
                         </p>
-                    </Row>
-                    <Row>
-                        {
-                            gameStatus === 'running' ? 'Running' : 'Click start nw round'
-                        }
-                    </Row>
-                    <Row>
+                    </Col>
+                    <Col>
                         <p>Game Status: {gameStatus}</p>
-                    </Row>
                     </Col>
                 </Flex>
-                <Flex align="center" justify="center">
-                <Col>
-                    <Row>
+                <Flex vertical gap='middle' align="center" justify="center">
                         <Button
                             onClick={() => {
                                 toggleInterval();
@@ -425,8 +442,6 @@ const GameTile = () => {
                                     isAutoPlay ? 'Stop' : 'Make automatic play'
                             }
                         </Button>
-                    </Row>
-                    <Row>
                         <Button hidden={true} onClick={() => {
                             unsub();
                             if (true) {
@@ -435,32 +450,51 @@ const GameTile = () => {
                         }}>
                             Not click
                         </Button>
-                    </Row>
-
-                    <Row>
                         <Button onClick={() => {
                             startNewRound();
                         }}>
                             Start new round
                         </Button>
-                    </Row>
-                    <Row>
-                        <Switch defaultChecked={false} disabled={gameStatus === 'running'} checkedChildren='Against robot' unCheckedChildren='Against robot' onChange={() => {
+                        <Switch defaultChecked={false} disabled={gameStatus === 'running'} checkedChildren='Against robot' unCheckedChildren='Against user' onChange={() => {
                             toggleAgainstRobot();
                         }} />
-                    </Row>
-                    <Row>
                         <Button onClick={() => reset()}>
                             Reset
                         </Button>
-                    </Row>
-                </Col>
                 </Flex>
-                <Flex>
+                <Flex vertical>
                     <Col>
-                        <p>{winner}</p>
+                        <Input
+                            placeholder="Round number"
+                            onChange={(event) => {
+                                event.preventDefault();
+                                console.log('ah', event.target.value);
+                                changeDisplayingRoundMovementsNumber(event.target.value);
+                            }}
+                        />
+                        <Button onClick={() => {
+
+                        }}>Show</Button>
+                        <p>Round: {displayingRoundMovementsNumber}</p>
+                        {
+                            _.map(roundSteps, (roundStep, i) => {
+                                return <Combos key={i} hidden={i !== displayingRoundMovementsNumber - 1 && false}>
+                                    {
+                                        getChunkedMovements(roundSteps[i]).map((movementPair: string[], j: number) => (
+                                            <Movement key={_.uniqueId()} onClick={(event) => {
+                                                const toShow = _.slice(getChunkedMovements(roundSteps[i]), 0, j + 1);
+                                                console.log(`+==========toShow======: ${toShow}`);
+                                                console.log(`${movementPair[0]} - ${movementPair[1]}`);
+                                            }}>
+                                                {`${_.join(movementPair, '-')}`}
+                                            </Movement>
+                                        ))
+                                    }
+                                </Combos>
+                            })
+                        }
                     </Col>
-                    <Col>
+                    {/* <Col>
                         <Combos>
                             {
                                 _.chunk(takenCombinations, 2).map((el: string[], i: number) => (
@@ -470,7 +504,7 @@ const GameTile = () => {
                                 ))
                             }
                         </Combos>
-                    </Col>
+                    </Col> */}
                 </Flex>
             </Panel>
             <PanelResizeHandle />
@@ -514,7 +548,6 @@ const GameTile = () => {
                                     checkOver();
                                     if (isAgainsRobot) {
                                         makeRobotMove();
-                                        console.log('Robot mvm ----END');
                                     }
                                     // willWinnerNextStep();
                                 }
@@ -527,9 +560,7 @@ const GameTile = () => {
                                 openTile(item.id);
                                 checkOver();
                                 if (isAgainsRobot) {
-                                    console.log('Robot mvm');
                                     makeRobotMove();
-                                    console.log('Robot mvm ----END');
                                 }
                                 // willWinnerNextStep();
                             }

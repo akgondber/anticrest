@@ -50,6 +50,11 @@ const hasWinner = (items: GameItem[]) => {
     return false;
 }
 
+const getChunkedMovements = (items: string[]) => {
+    return _.chain(items).chunk(2).value();
+    // .filter((pair) => pair.length === 2).value();
+};
+
 const getWinnerNameByOld = (items: GameItem[], source: string) => {
     // const da = isWin(items, '');
     const firstPlayerTiles = _.filter(items, item => item.color === source);
@@ -245,5 +250,6 @@ export {
     filterOpenedTiles,
     isFirstPlayerMove,
     couldWinNextStep,
+    getChunkedMovements,
     GameResult,
 };

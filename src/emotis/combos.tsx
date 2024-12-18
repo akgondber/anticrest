@@ -1,7 +1,8 @@
 import styled from "@emotion/styled";
 
 const Combos = styled.div`
-    display: block;
+    display: ${props => props.hidden ? 'none' : 'block'};
+    visibility: ${props => props.hidden ? 'hidden' : 'visible'};
     height: 80%;
     max-height: 400px;
     width: 90px;
