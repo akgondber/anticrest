@@ -6,7 +6,7 @@ const Combos = styled.div`
     height: 80%;
     max-height: 400px;
     width: 90px;
-    background-color: cyan;
+    background-color: white;
     color: grey;
     overflow-y: scroll;
 `;
@@ -26,10 +26,16 @@ const ContaItem = styled.div`
     align-items: center;
 `;
 
+type MovementProps = {
+    opened: boolean;
+    disabled: boolean;
+}
+
 const Movement = styled.a`
     display: block;
     text-decoration: none;
-    color: red;
+    color: ${(props: MovementProps) => props.opened ? 'purple' : 'cyan'};
+    pointer-events: ${(props: MovementProps) => props.disabled ? 'none' : ''};
 `;
 
 export {

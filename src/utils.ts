@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { type GameItem } from "./components/GameTile";
+import { Step, type GameItem } from "./components/GameTile";
 import { mapping, opponentColors } from './constants';
 
 // const getWinnerBy = (items: GameItem[], source: string) => {
@@ -64,6 +64,10 @@ const getWinnerNameByOld = (items: GameItem[], source: string) => {
         return _.get(_.values(horizontal), '0.0.color');
     }
     return '';
+};
+
+const includesStep = (openedSteps: Step[], pair: Step[]) => {
+    return _.every(pair, openedSteps.includes);
 };
 
 const getLoserName = (items: GameItem[]) => {
@@ -252,4 +256,5 @@ export {
     couldWinNextStep,
     getChunkedMovements,
     GameResult,
+    includesStep,
 };

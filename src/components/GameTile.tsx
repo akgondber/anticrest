@@ -7,7 +7,7 @@ import {
     PanelResizeHandle
 } from 'react-resizable-panels';
 import { Apple, BadgeDollarSign, BadgeEuro, Camera } from 'lucide-react';
-import { Affix, Anchor, Button, Card, Col, Divider, Flex, Input, Radio, Row, Steps, Switch } from 'antd';
+import { Affix, Anchor, Avatar, Button, Card, Col, Divider, Flex, Input, Radio, Row, Steps, Switch } from 'antd';
 import { create } from "zustand";
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -15,22 +15,23 @@ import { useState } from "react";
 import styled from "@emotion/styled";
 import _, { first, take } from 'lodash';
 import GamePanel, { StatusPanel } from "./GamePanel";
-import { couldWinNextStep, filterOpenedTiles, GameResult, getChunkedMovements, getGameResult, getLoserName, getWinner, getWinnerName, hasWinner, isFirstPlayerMove } from "../utils";
+import { couldWinNextStep, filterOpenedTiles, GameResult, getChunkedMovements, getGameResult, getLoserName, getWinner, getWinnerName, hasWinner, includesStep, isFirstPlayerMove } from "../utils";
 import { Merge } from "type-fest";
 import { Combos, Conta, ContaItem, Movement } from "../emotis/combos";
 import { useInterval } from 'usehooks-ts';
 import delay from "delay";
 import { makeStep } from "../engine/medium-level-robot";
+import { Shake } from "reshake";
 
 type TileProps = {
     bgColor?: string;
 };
 
 const Tile = styled.div`
-    width: 15px;
-    height: 15px;
-    padding: 20px;
-    margin: 20px;
+    width: 25px;
+    height: 25px;
+    padding: 5px;
+    margin: 10px;
     background-color: ${(props: TileProps) => props.bgColor || 'red'};
 `;
 
@@ -70,6 +71,11 @@ type RoundStoreProps = {
     appendMovement: any;
 };
 
+type Step = {
+    coord: string;
+    color: string;
+}
+
 type BoardStateProps = {
     tiles: number;
     sign: string;
@@ -85,9 +91,14 @@ type BoardStateProps = {
     winner: string;
     hasNextWinner: boolean;
     nextStepWinner: boolean;
+    openedByUserSteps: Array<any>;
     items: Array<GameItem>;
     displayingRoundMovementsNumber: number;
+    addToOpenedByUserSteps: Function;
+    clearOpenedByUserSteps: Function;
+    openStep: (step: Step) => any;
     openTile: (id: string) => any;
+    clearBoard: (id: string) => any;
     reset: () => any;
     bar: number;
     setColor: any;
@@ -171,6 +182,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
     isAgainsRobot: false,
     displayingRoundMovementsNumber: 1,
     takenCombinations: [],
+    openedByUserSteps: [],
     gameDelay: 1000,
     items: hop, //_.times(9, () => ({ id: _.uniqueId(), sign: 'a', color: 'orange', isOpened: false, x: 0, y: 0 })),
     // [
@@ -210,11 +222,26 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         state.isAutoPlay = false;
         state.gameStatus = 'waiting';
     }),
+    clearBoard: () => set((state: BoardStateProps) => {
+        state.items = _.map(state.items, (elem) => ({...elem, isOpened: false, color: 'grey'}));
+    }),
+    addToOpenedByUserSteps: (step: Step) => set((state: BoardStateProps) => {
+        state.openedByUserSteps.push(step);
+    }),
+    clearOpenedByUserSteps: () => set((state: BoardStateProps) => {
+        state.openedByUserSteps = [];
+    }),
+    openStep: (step: Step) => set((state: BoardStateProps) => {
+        console.log('BATX', step.coord.split('x'));
+        const [x, y] = step.coord.split('x');
+        console.log(_.map(state.items, itm => itm.x));
+        state.items = _.map(state.items, (item) => item.x == x && item.y == y ? ({ ...item, isOpened: true, color: step.color }) : item);
+    }),
     openTile: (id: string) => set((state: BoardStateProps) => {
         const tileToOpen = _.find(state.items, {id: id, isOpened: false});
         if (tileToOpen) {
             const color = isFirstPlayerMove(state.items) ? 'red' : 'cyan';
-            state.roundSteps[state.roundSteps.length-1].push({step: `${tileToOpen.x}x${tileToOpen.y}`, color });
+            state.roundSteps[state.roundSteps.length-1].push({coord: `${tileToOpen.x}x${tileToOpen.y}`, color });
             // appendMovement(`${tileToOpen.x}x${tileToOpen.y}`);
             state.items = _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? { ...elem, isOpened: true, color, sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
         }
@@ -280,7 +307,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
             // console.log('DSY');
             // get().openTile(calculatedTile);
             const color = isFirstPlayerMove(state.items) ? 'red' : 'cyan';
-            state.roundSteps[state.roundSteps.length-1].push({step: `${calculatedTile.x}x${calculatedTile.y}`, color });
+            state.roundSteps[state.roundSteps.length-1].push({coord: `${calculatedTile.x}x${calculatedTile.y}`, color });
             state.items = _.map(state.items, (elem) => elem.id === calculatedTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove(state.items) ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
             // state.openTile(rndTile!.id);
             // state.items = _.map(state.items, (elem) => elem.id === rndTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
@@ -378,7 +405,11 @@ const GameTile = () => {
     const displayingRoundMovementsNumber = useTileStore((state: BoardStateProps) => state.displayingRoundMovementsNumber);
     const takenCombinations = useTileStore((state: BoardStateProps) => state.takenCombinations);
     const winner = useTileStore((state: BoardStateProps) => state.winner);
+    const openStep = useTileStore((state: BoardStateProps) => state.openStep);
     const openTile = useTileStore((state: BoardStateProps) => state.openTile);
+    const addToOpenedByUserSteps = useTileStore((state: BoardStateProps) => state.addToOpenedByUserSteps);
+    const openedByUserSteps = useTileStore((state: BoardStateProps) => state.openedByUserSteps);
+    const clearBoard = useTileStore((state: BoardStateProps) => state.clearBoard);
     const checkOver = useTileStore((state: BoardStateProps) => state.checkOver);
     const automaticRun = useTileStore((state: BoardStateProps) => state.automaticRun);
     const toggleInterval = useTileStore((state: BoardStateProps) => state.toggleInterval);
@@ -430,6 +461,42 @@ const GameTile = () => {
                         <p>Game Status: {gameStatus}</p>
                     </Col>
                 </Flex>
+                <Card
+                    hoverable={true}
+                    style={{ width: 320, display: 'none' }}
+                    actions={[
+                        <Camera />,
+                        <Apple />
+                    ]}
+                    title="Need more information"
+                    extra={<Button type="primary">Details</Button>}
+                    cover={
+                        <div style={{
+                            height: 150,
+                            width: '100%',
+                            background: 'linear-gradient(#FF007A, #4200FF)',
+                            color: 'white',
+                            fontSize: 30,
+                            paddingTop: 200,
+                        }} />
+                    }
+                >
+                    <p>Stign</p>
+                            <Card.Meta
+                            style={{
+                                display: "flex",
+                                flexDirection: 'column',
+                                marginTop: -60,
+                            }}
+                                avatar={
+                                    <Avatar src="https://www.gravatar.com/avatar/a021d1244f918f49610e162529d8e499?s=64&d=identicon&r=PG" />
+                                }
+                                title="Code with Amajer"
+                                description="@CodeWithAmajer"
+                            >
+                                <p>POan</p>
+                            </Card.Meta>
+                </Card>
                 <Flex vertical gap='middle' align="center" justify="center">
                         <Button
                             onClick={() => {
@@ -444,8 +511,9 @@ const GameTile = () => {
                         </Button>
                         <Button hidden={true} onClick={() => {
                             unsub();
-                            if (true) {
 
+                            if (true) {
+                                
                             }
                         }}>
                             Not click
@@ -465,6 +533,8 @@ const GameTile = () => {
                 <Flex vertical>
                     <Col>
                         <Input
+                            style={{width: '60px'}}
+                            size="large"
                             placeholder="Round number"
                             onChange={(event) => {
                                 event.preventDefault();
@@ -472,7 +542,7 @@ const GameTile = () => {
                                 changeDisplayingRoundMovementsNumber(event.target.value);
                             }}
                         />
-                        <Button onClick={() => {
+                        <Button size='middle' onClick={() => {
 
                         }}>Show</Button>
                         <p>Round: {displayingRoundMovementsNumber}</p>
@@ -481,12 +551,40 @@ const GameTile = () => {
                                 return <Combos key={i} hidden={i !== displayingRoundMovementsNumber - 1 && false}>
                                     {
                                         getChunkedMovements(roundSteps[i]).map((movementPair: string[], j: number) => (
-                                            <Movement key={_.uniqueId()} onClick={(event) => {
+                                            // const wasOpened = _.every(movementPair, openedByUserSteps.includes);
+
+                                            <Movement key={_.uniqueId()} disabled={!isOver} opened={includesStep(openedByUserSteps, movementPair)} onClick={(event) => {
                                                 const toShow = _.slice(getChunkedMovements(roundSteps[i]), 0, j + 1);
-                                                console.log(`+==========toShow======: ${toShow}`);
-                                                console.log(`${movementPair[0]} - ${movementPair[1]}`);
+                                                const [x, y] = toShow[0][0].coord.split('x');
+
+                                                
+                                                console.log(`+==========toShow======: ${JSON.stringify(toShow)}`);
+                                                console.log('sds---', x, y);
+                                                console.log('SHHSHS', toShow[0][0]);
+
+                                                if (isOver) {
+                                                    clearBoard();
+                                                    console.log('INV MAP');
+                                                    _.map(toShow, item => {
+                                                        console.log(item);
+                                                        _.map(item, step => {
+                                                            addToOpenedByUserSteps(step);
+                                                            openStep(step);
+                                                        });
+                                                        // const tata = _.invokeMap([item], openStep);
+                                                        // console.log('INV MAP END', tata);
+                                                    })
+                                                    
+                                                    console.log('INV MAP END');
+                                                    // _.map(toShow, tilePair => {
+                                                        // _.invokeMap(tilePair, openStep);
+                                                    // });
+                                                }
+                                                
+                                                console.log(`${JSON.stringify(movementPair[0])} (${_.get(movementPair, "0.coord")}) - ${JSON.stringify(movementPair[1])} (${_.get(movementPair, "1.coord")})`);
+
                                             }}>
-                                                {`${_.join(movementPair, '-')}`}
+                                                {`${_.join([_.get(movementPair, "0.coord"), _.get(movementPair, "1.coord")], '-')}`}
                                             </Movement>
                                         ))
                                     }
@@ -537,7 +635,9 @@ const GameTile = () => {
                 }
             </StatusPanel>
             <GamePanel isOver={isOver}>
-
+                <Shake h={10} v={0} r={3} active={true}>
+                    Bathz
+                </Shake>
                 {items.map((item, ind) => {
                     return ind % 5 === 0 ?
                         <>
@@ -559,6 +659,9 @@ const GameTile = () => {
                             if (!item.isOpened && !isOver) {
                                 openTile(item.id);
                                 checkOver();
+                                if (true) {
+                                    
+                                }
                                 if (isAgainsRobot) {
                                     makeRobotMove();
                                 }
@@ -578,4 +681,5 @@ export default GameTile;
 
 export type {
     GameItem,
+    Step,
 }

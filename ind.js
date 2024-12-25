@@ -107,5 +107,6 @@ const itas2 = [{u: 2, r: 2, b: 23}, {u: 2, r: 5, b: 78}, {u: 24, r: 2, b: 23}];
 console.log(_.find(itas, {'u': 2, r: 3}));
 console.log(_.chunk(itas, 2));
 console.log(_.isEqual(itas, itas2));
+console.log(_.get([{a: '3r'}], '0.a'));
 
 

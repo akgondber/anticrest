@@ -15,8 +15,11 @@ const StatusPanel = styled.div`
 `;
 
 const GamePanel = styled.div`
-    height: 40%;
-    filter: ${(props: GamePanelProps) => props.isOver ? 'blur(5px)' : 'blur(20px)'};
+    background-color: purple;
+    max-height: 840px;
+    max-width: 840px;
+    height: 300px;
+    filter: ${(props: GamePanelProps) => props.isOver ? 'blur(1px)' : 'blur(2px)'};
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
