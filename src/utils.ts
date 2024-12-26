@@ -1,6 +1,6 @@
 import _ from 'lodash';
 import { Step, type GameItem } from "./components/GameTile";
-import { mapping, opponentColors } from './constants';
+import { colors, mapping, opponentColors } from './constants';
 
 // const getWinnerBy = (items: GameItem[], source: string) => {
 //     const firstPlayerTiles = _.filter(items, item => item.color === source);
@@ -24,7 +24,6 @@ const getGameResult = (items: GameItem[]) => {
     _.forEach(items, el => {
         ra += el.isOpened ? 'YE; ' : 'NO; ';
     });
-    console.log('_____CDL ', ra);
     if (getLoserName(items)) {
         return GameResult.win;
     }
@@ -60,23 +59,24 @@ const getWinnerNameByOld = (items: GameItem[], source: string) => {
     const firstPlayerTiles = _.filter(items, item => item.color === source);
     const horizontal = _.groupBy(firstPlayerTiles, _.property('y'));
     if (_.some(_.values(horizontal), openedTiles => openedTiles.length === 3)) {
-        console.log('fg er', _.get(_.values(horizontal), '0'));
         return _.get(_.values(horizontal), '0.0.color');
     }
     return '';
 };
 
-const includesStep = (openedSteps: Step[], pair: Step[]) => {
-    return _.every(pair, openedSteps.includes);
+const includesStep = (openedSteps: Step[], pairOrStep: Step[] | Step) => {
+    if (Array.isArray(pairOrStep)) {
+        return _.every(pairOrStep, (item) => openedSteps.includes(item));
+    } else {
+        return _.some(openedSteps, (openedStep) => _.isEqual(openedStep, pairOrStep));
+    }
+    // return _.every(pair, (item) => openedSteps.includes(item));
 };
 
 const getLoserName = (items: GameItem[]) => {
     let loser = getWinnerNameBy(items, 'red');
-    console.log(`1 ----- ${loser}`);
-    console.log(opponentColors);
     if (loser) return mapping[_.get(opponentColors, loser)];
     loser = getWinnerNameBy(items, 'cyan');
-    console.log(`2 ----- ${loser}`);
     if (loser) return mapping[_.get(opponentColors, loser)];
     return '';
 };
@@ -102,12 +102,10 @@ const getWinnerNameBy = (items: GameItem[], source: string) => {
     let result = false;
     const horizontal = _.groupBy(firstPlayerTiles, _.property('y'));
     if (_.some(_.values(horizontal), openedTiles => openedTiles.length === 5)) {
-        console.log('--------------HORIZONTAL---------------------');
         return source;
     }
     const vertical = _.groupBy(firstPlayerTiles, _.property('x'));
     if (_.some(_.values(vertical), openedTiles => openedTiles.length === 5)) {
-        console.log('--------------VERTICAL---------------------');
         return source;
     }
     const diagonal = _.groupBy(firstPlayerTiles, item => `${item.x}x${item.y}`);
@@ -207,12 +205,10 @@ const getWinnerNameBy = (items: GameItem[], source: string) => {
 const getWinner = (items: GameItem[]) => {
     const first = getWinnerNameBy(items, 'red');
     if (first !== '') {
-        console.log('____________________FIRST WIN _______________________');
         return first;
     }
     const second = getWinnerNameBy(items, 'cyan');
     if (second !== '') {
-        console.log('____________________SECOND WIN _______________________');
         return second;
     }
     return '';
@@ -225,6 +221,42 @@ const getWinner = (items: GameItem[]) => {
     //             return;
     //         }
     //     });
+};
+
+const getWinningCombination = (items: GameItem[]): Step[] | null => {
+    if (hasWinner(items)) {
+        console.log('==========================HAS WINNNNNN=======');
+        const firstPlayerTiles = _.filter(items, item => item.color === colors.first);
+        const horizontal = _.groupBy(firstPlayerTiles, _.property('y'));
+        let winningTiles;
+
+        if (_.some(_.values(horizontal), openedTiles => openedTiles.length === 5)) {
+            winningTiles = _.find(_.values(horizontal), openedTiles => openedTiles.length === 5);
+            return _.map(winningTiles, tile => ({ coord: `${tile.x}x${tile.y}`, color: tile.color }));
+        }
+        const vertical = _.groupBy(firstPlayerTiles, _.property('x'));
+        if (_.some(_.values(vertical), openedTiles => openedTiles.length === 5)) {
+            winningTiles = _.find(_.values(vertical), openedTiles => openedTiles.length === 5);
+            return _.map(winningTiles, tile => ({ coord: `${tile.x}x${tile.y}`, color: tile.color }));
+        }
+        let diagonalItems : GameItem[] = [];
+        // 2,0 1,1; 0,2
+        // 4,0; 3,1; 2,2; 1,3; 0,4
+
+        _.map(firstPlayerTiles, item => {
+            if (item.x === item.y) {
+                diagonalItems.push(item);
+            }
+        });
+
+        if (diagonalItems.length >= 5) {
+            return _.map(diagonalItems, tile => ({ coord: `${tile.x}x${tile.y}`, color: tile.color }));;
+        }
+    }
+
+    console.log('==========================HAS NOT WINNNNNN=======');
+    
+    return null;
 };
 
 const couldWinNextStep = (items: GameItem[]) => {
@@ -257,4 +289,5 @@ export {
     getChunkedMovements,
     GameResult,
     includesStep,
+    getWinningCombination,
 };

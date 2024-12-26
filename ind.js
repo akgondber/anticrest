@@ -27,8 +27,8 @@ const la = [{
 }];
 
 const colors = {
-    first: 'af',
-    second: 'die',
+    first: 'a',
+    second: 'b',
 };
 const obj = {};
 const coArr = _.values(colors);
@@ -108,5 +108,10 @@ console.log(_.find(itas, {'u': 2, r: 3}));
 console.log(_.chunk(itas, 2));
 console.log(_.isEqual(itas, itas2));
 console.log(_.get([{a: '3r'}], '0.a'));
+
+const items = [{color: 'a', x: 1, y: 1}, {color: 'a', x: 2, y: 1}, {color: 'a', x: 4, y: 2}, {color: 'a', x: 4, y: 1}];
+const firstPlayerTiles = _.filter(items, item => item.color === colors.first);
+const horizontal = _.groupBy(firstPlayerTiles, _.property('y'));
+console.log(horizontal);
 
 

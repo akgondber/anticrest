@@ -6,16 +6,17 @@ import {
     PanelGroup,
     PanelResizeHandle
 } from 'react-resizable-panels';
-import { Apple, BadgeDollarSign, BadgeEuro, Camera } from 'lucide-react';
+import { Apple, BadgeDollarSign, BadgeEuro, Camera, Wifi } from 'lucide-react';
 import { Affix, Anchor, Avatar, Button, Card, Col, Divider, Flex, Input, Radio, Row, Steps, Switch } from 'antd';
 import { create } from "zustand";
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { useState } from "react";
 import styled from "@emotion/styled";
+import { keyframes, css } from "@emotion/react";
 import _, { first, take } from 'lodash';
 import GamePanel, { StatusPanel } from "./GamePanel";
-import { couldWinNextStep, filterOpenedTiles, GameResult, getChunkedMovements, getGameResult, getLoserName, getWinner, getWinnerName, hasWinner, includesStep, isFirstPlayerMove } from "../utils";
+import { couldWinNextStep, filterOpenedTiles, GameResult, getChunkedMovements, getGameResult, getLoserName, getWinner, getWinnerName, getWinningCombination, hasWinner, includesStep, isFirstPlayerMove } from "../utils";
 import { Merge } from "type-fest";
 import { Combos, Conta, ContaItem, Movement } from "../emotis/combos";
 import { useInterval } from 'usehooks-ts';
@@ -23,9 +24,65 @@ import delay from "delay";
 import { makeStep } from "../engine/medium-level-robot";
 import { Shake } from "reshake";
 
+const shake = keyframes`
+    10%, 90% {
+      transform: translate3d(-1px, 0, 0);
+    }
+
+    
+    20%, 80% {
+      transform: translate3d(2px, 0, 0);
+    }
+  
+    30%, 50%, 70% {
+      transform: translate3d(-4px, 0, 0);
+    }
+  
+    40%, 60% {
+      transform: translate3d(4px, 0, 0);
+    }
+  }`;
+
+const Sama = keyframes`
+  from, 20%, 53%, 80%, to {
+    transform: translate3d(0,0,0);
+  }
+
+  40%, 43% {
+    transform: translate3d(0, -30px, 0);
+  }
+
+  70% {
+    transform: translate3d(0, -15px, 0);
+  }
+
+  90% {
+    transform: translate3d(0,-4px,0);
+  }
+`;
+
+
+
+const casa = css`
+    animation: ${shake} 0.82s cubic-bezier(.36,.07,.19,.97) both 7;
+`;
+
 type TileProps = {
     bgColor?: string;
+    isFormsWinningSet?: boolean;
 };
+
+const dati = (props: TileProps) => {
+    return props.isFormsWinningSet ? casa : '';
+};
+
+const Hovered = styled.div`
+    animation: ${(props) => props.dama ? `${shake} 0.82s cubic-bezier(.36,.07,.19,.97) both infinite` : ''};
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    ${casa};
+}`;
 
 const Tile = styled.div`
     width: 25px;
@@ -33,6 +90,10 @@ const Tile = styled.div`
     padding: 5px;
     margin: 10px;
     background-color: ${(props: TileProps) => props.bgColor || 'red'};
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    ${dati};
 `;
 
 const Break = styled.div`
@@ -223,7 +284,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         state.gameStatus = 'waiting';
     }),
     clearBoard: () => set((state: BoardStateProps) => {
-        state.items = _.map(state.items, (elem) => ({...elem, isOpened: false, color: 'grey'}));
+        state.items = _.map(state.items, (elem) => ({ ...elem, isOpened: false, color: 'grey' }));
     }),
     addToOpenedByUserSteps: (step: Step) => set((state: BoardStateProps) => {
         state.openedByUserSteps.push(step);
@@ -232,20 +293,18 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
         state.openedByUserSteps = [];
     }),
     openStep: (step: Step) => set((state: BoardStateProps) => {
-        console.log('BATX', step.coord.split('x'));
         const [x, y] = step.coord.split('x');
-        console.log(_.map(state.items, itm => itm.x));
         state.items = _.map(state.items, (item) => item.x == x && item.y == y ? ({ ...item, isOpened: true, color: step.color }) : item);
     }),
     openTile: (id: string) => set((state: BoardStateProps) => {
-        const tileToOpen = _.find(state.items, {id: id, isOpened: false});
+        const tileToOpen = _.find(state.items, { id: id, isOpened: false });
         if (tileToOpen) {
             const color = isFirstPlayerMove(state.items) ? 'red' : 'cyan';
-            state.roundSteps[state.roundSteps.length-1].push({coord: `${tileToOpen.x}x${tileToOpen.y}`, color });
+            state.roundSteps[state.roundSteps.length - 1].push({ coord: `${tileToOpen.x}x${tileToOpen.y}`, color });
             // appendMovement(`${tileToOpen.x}x${tileToOpen.y}`);
             state.items = _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? { ...elem, isOpened: true, color, sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
         }
-        
+
         // const firstPlayerTiles = _.filter(state.items, item => item.color === 'red');
         // let firstWin = false;
         // let secondWin = false;
@@ -307,7 +366,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
             // console.log('DSY');
             // get().openTile(calculatedTile);
             const color = isFirstPlayerMove(state.items) ? 'red' : 'cyan';
-            state.roundSteps[state.roundSteps.length-1].push({coord: `${calculatedTile.x}x${calculatedTile.y}`, color });
+            state.roundSteps[state.roundSteps.length - 1].push({ coord: `${calculatedTile.x}x${calculatedTile.y}`, color });
             state.items = _.map(state.items, (elem) => elem.id === calculatedTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: isFirstPlayerMove(state.items) ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
             // state.openTile(rndTile!.id);
             // state.items = _.map(state.items, (elem) => elem.id === rndTile.id && !elem.isOpened ? { ...elem, isOpened: true, color: state.gameIndex % 2 === 0 ? 'red' : 'cyan', sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
@@ -382,10 +441,8 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
     }),
     changeDisplayingRoundMovementsNumber: (value: number) => set((state: BoardStateProps) => {
         if (value > 0 && value <= state.roundSteps.length) {
-            console.log('setting', value);
             state.displayingRoundMovementsNumber = value;
         } else {
-            console.log('Not setting', value);
         }
     })
 }))));
@@ -427,7 +484,6 @@ const GameTile = () => {
         //     console.log('================', a);
         // }
     }, (va: any) => {
-        console.log('sas======', va);
         checkOver();
         // console.log('YYYYYYYYYYYYYYY', va);
     }, { equalityFn: _.isEqual });
@@ -482,63 +538,62 @@ const GameTile = () => {
                     }
                 >
                     <p>Stign</p>
-                            <Card.Meta
-                            style={{
-                                display: "flex",
-                                flexDirection: 'column',
-                                marginTop: -60,
-                            }}
-                                avatar={
-                                    <Avatar src="https://www.gravatar.com/avatar/a021d1244f918f49610e162529d8e499?s=64&d=identicon&r=PG" />
-                                }
-                                title="Code with Amajer"
-                                description="@CodeWithAmajer"
-                            >
-                                <p>POan</p>
-                            </Card.Meta>
+                    <Card.Meta
+                        style={{
+                            display: "flex",
+                            flexDirection: 'column',
+                            marginTop: -60,
+                        }}
+                        avatar={
+                            <Avatar src="https://www.gravatar.com/avatar/a021d1244f918f49610e162529d8e499?s=64&d=identicon&r=PG" />
+                        }
+                        title="Code with Amajer"
+                        description="@CodeWithAmajer"
+                    >
+                        <p>POan</p>
+                    </Card.Meta>
                 </Card>
                 <Flex vertical gap='middle' align="center" justify="center">
-                        <Button
-                            onClick={() => {
-                                toggleInterval();
-                            }}
-                        >
-                            {
-                                isOver ?
-                                    'Rnn' :
-                                    isAutoPlay ? 'Stop' : 'Make automatic play'
-                            }
-                        </Button>
-                        <Button hidden={true} onClick={() => {
-                            unsub();
+                    <Button
+                        onClick={() => {
+                            toggleInterval();
+                        }}
+                    >
+                        {
+                            isOver ?
+                                'Rnn' :
+                                isAutoPlay ? 'Stop' : 'Make automatic play'
+                        }
+                    </Button>
+                    <Button hidden={true} onClick={() => {
+                        unsub();
 
-                            if (true) {
-                                
-                            }
-                        }}>
-                            Not click
-                        </Button>
-                        <Button onClick={() => {
-                            startNewRound();
-                        }}>
-                            Start new round
-                        </Button>
-                        <Switch defaultChecked={false} disabled={gameStatus === 'running'} checkedChildren='Against robot' unCheckedChildren='Against user' onChange={() => {
-                            toggleAgainstRobot();
-                        }} />
-                        <Button onClick={() => reset()}>
-                            Reset
-                        </Button>
+                        if (true) {
+
+                        }
+                    }}>
+                        Not click
+                    </Button>
+                    <Button onClick={() => {
+                        startNewRound();
+                    }}>
+                        Start new round
+                    </Button>
+                    <Switch defaultChecked={false} disabled={gameStatus === 'running'} checkedChildren='Against robot' unCheckedChildren='Against user' onChange={() => {
+                        toggleAgainstRobot();
+                    }} />
+                    <Button onClick={() => reset()}>
+                        Reset
+                    </Button>
                 </Flex>
                 <Flex vertical>
                     <Col>
                         <Input
-                            style={{width: '60px'}}
+                            style={{ width: '60px' }}
                             size="large"
                             placeholder="Round number"
                             onChange={(event) => {
                                 event.preventDefault();
-                                console.log('ah', event.target.value);
                                 changeDisplayingRoundMovementsNumber(event.target.value);
                             }}
                         />
@@ -553,20 +608,13 @@ const GameTile = () => {
                                         getChunkedMovements(roundSteps[i]).map((movementPair: string[], j: number) => (
                                             // const wasOpened = _.every(movementPair, openedByUserSteps.includes);
 
-                                            <Movement key={_.uniqueId()} disabled={!isOver} opened={includesStep(openedByUserSteps, movementPair)} onClick={(event) => {
+                                            <Movement key={_.uniqueId()} disabled={!isOver} opened={false} onClick={(event) => {
                                                 const toShow = _.slice(getChunkedMovements(roundSteps[i]), 0, j + 1);
                                                 const [x, y] = toShow[0][0].coord.split('x');
 
-                                                
-                                                console.log(`+==========toShow======: ${JSON.stringify(toShow)}`);
-                                                console.log('sds---', x, y);
-                                                console.log('SHHSHS', toShow[0][0]);
-
                                                 if (isOver) {
                                                     clearBoard();
-                                                    console.log('INV MAP');
                                                     _.map(toShow, item => {
-                                                        console.log(item);
                                                         _.map(item, step => {
                                                             addToOpenedByUserSteps(step);
                                                             openStep(step);
@@ -574,14 +622,12 @@ const GameTile = () => {
                                                         // const tata = _.invokeMap([item], openStep);
                                                         // console.log('INV MAP END', tata);
                                                     })
-                                                    
-                                                    console.log('INV MAP END');
+
                                                     // _.map(toShow, tilePair => {
-                                                        // _.invokeMap(tilePair, openStep);
+                                                    // _.invokeMap(tilePair, openStep);
                                                     // });
                                                 }
-                                                
-                                                console.log(`${JSON.stringify(movementPair[0])} (${_.get(movementPair, "0.coord")}) - ${JSON.stringify(movementPair[1])} (${_.get(movementPair, "1.coord")})`);
+
 
                                             }}>
                                                 {`${_.join([_.get(movementPair, "0.coord"), _.get(movementPair, "1.coord")], '-')}`}
@@ -638,11 +684,44 @@ const GameTile = () => {
                 <Shake h={10} v={0} r={3} active={true}>
                     Bathz
                 </Shake>
-                {items.map((item, ind) => {
+                {
+                    isOver && 
+                        items.map((item, ind) => {
+                            console.log('wnnnn', getWinningCombination(items));
+                            return ind % 5 === 0 ?
+                                <>
+                                    <Break />
+                                    <Tile key={ind} bgColor={item.color} isFormsWinningSet={includesStep(getWinningCombination(items), {coord: `${item.x}x${item.y}`, color: item.color})}>
+                                        {item.x === 1 ? <Wifi /> : <Apple />}
+                                    </Tile>
+                                </> :
+                                <Tile
+                                    key={ind}
+                                    bgColor={item.color}
+                                    isFormsWinningSet={includesStep(getWinningCombination(items), {coord: `${item.x}x${item.y}`, color: item.color})}
+                                    onClick={() => {
+                                        if (!item.isOpened && !isOver) {
+                                            openTile(item.id);
+                                            checkOver();
+                                            if (true) {
+        
+                                            }
+                                            if (isAgainsRobot) {
+                                                makeRobotMove();
+                                            }
+                                            // willWinnerNextStep();
+                                        }
+                                    }
+                                    }>
+                                    {item.x === 1 ? <Camera /> : <Apple />}
+                                </Tile>
+                        })
+                }
+                {!isOver && items.map((item, ind) => {
                     return ind % 5 === 0 ?
                         <>
                             <Break />
-                            <Tile key={ind} bgColor={item.color} onClick={async () => {
+                            <Tile key={ind} bgColor={item.color} isFormsWinningSet={includesStep(openedByUserSteps, {coord: `${item.x}x${item.y}`, color: item.color})} onClick={async () => {
                                 if (!item.isOpened && !isOver && !isAutoPlay) {
                                     openTile(item.id);
                                     checkOver();
@@ -655,19 +734,25 @@ const GameTile = () => {
                                 {item.x === 1 ? <Camera /> : <Apple />}
                             </Tile>
                         </> :
-                        <Tile key={ind} bgColor={item.color} onClick={() => {
-                            if (!item.isOpened && !isOver) {
-                                openTile(item.id);
-                                checkOver();
-                                if (true) {
-                                    
+                        
+                        <Tile
+                            key={ind}
+                            bgColor={item.color}
+                            isFormsWinningSet={includesStep(openedByUserSteps, {coord: `${item.x}x${item.y}`, color: item.color})}
+                            onClick={() => {
+                                if (!item.isOpened && !isOver) {
+                                    openTile(item.id);
+                                    checkOver();
+                                    if (true) {
+
+                                    }
+                                    if (isAgainsRobot) {
+                                        makeRobotMove();
+                                    }
+                                    // willWinnerNextStep();
                                 }
-                                if (isAgainsRobot) {
-                                    makeRobotMove();
-                                }
-                                // willWinnerNextStep();
                             }
-                        }}>
+                            }>
                             {item.x === 1 ? <Camera /> : <Apple />}
                         </Tile>
                 }
