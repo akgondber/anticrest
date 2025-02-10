@@ -7,7 +7,7 @@ import {
     PanelResizeHandle
 } from 'react-resizable-panels';
 import { Apple, BadgeDollarSign, BadgeEuro, Camera, Wifi } from 'lucide-react';
-import { Affix, Anchor, Avatar, Button, Card, Col, Divider, Flex, Input, Radio, Row, Steps, Switch } from 'antd';
+import { Affix, Anchor, Avatar, Badge, Button, Card, Col, Divider, Flex, Input, message, Radio, Row, Space, Spin, Steps, Switch } from 'antd';
 import { create } from "zustand";
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -177,6 +177,7 @@ type BoardStateProps = {
     gameIntervalId?: ReturnType<typeof setInterval>;
     toggleInterval?: any;
     changeDisplayingRoundMovementsNumber: () => {},
+    isStarted: () => {},
 }
 
 const asyncTimeout = (ms: number) => {
@@ -227,7 +228,7 @@ const hop = _.flatten(_.times(5, (i) => {
 //     }),
 // }));
 
-const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((set) => ({
+const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((set, get) => ({
     tiles: 0,
     sign: 'a',
     hasNextWinner: false,
@@ -303,6 +304,7 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
             state.roundSteps[state.roundSteps.length - 1].push({ coord: `${tileToOpen.x}x${tileToOpen.y}`, color });
             // appendMovement(`${tileToOpen.x}x${tileToOpen.y}`);
             state.items = _.map(state.items, (elem) => elem.id === id && !elem.isOpened ? { ...elem, isOpened: true, color, sign: elem.sign === 'a' ? 'b' : 'a' } as GameItem : elem);
+            state.gameIndex++;
         }
 
         // const firstPlayerTiles = _.filter(state.items, item => item.color === 'red');
@@ -444,7 +446,10 @@ const useTileStore = create<BoardStateProps, any>(subscribeWithSelector(immer((s
             state.displayingRoundMovementsNumber = value;
         } else {
         }
-    })
+    }),
+    isStarted: () => get((state: BoardStateProps) => {
+        return _.filter(state.items, tile => tile.isOpened).length > 0;
+    }),
 }))));
 
 const GameTile = () => {
@@ -476,6 +481,7 @@ const GameTile = () => {
     const toggleAgainstRobot = useTileStore((state: BoardStateProps) => state.toggleAgainstRobot);
     const roundSteps = useTileStore((state: BoardStateProps) => state.roundSteps);
     const reset = useTileStore((state: BoardStateProps) => state.reset);
+    const isStarted = useTileStore((state: BoardStateProps) => state.isStarted);
     const changeDisplayingRoundMovementsNumber = useTileStore((state: BoardStateProps) => state.changeDisplayingRoundMovementsNumber);
 
     const unsub = useTileStore.subscribe((state: BoardStateProps) => {     // @ts-ignore
@@ -495,23 +501,40 @@ const GameTile = () => {
     }, isAutoPlay ? gameDelay : null);
     const [tp, setTp] = useState<number>(100);
     const [bt, setBt] = useState<number>(100);
+    const [messageApi, contextHolder] = message.useMessage();
+    const success = (message) => {
+        messageApi.open({
+            type: 'success',
+            content: message,
+            duration: 10,
+        });
+    };
 
     return <PanelGroup direction='horizontal'>
         <>
             <Panel id='sidebar' minSize={10} maxSize={20} order={1}>
+            {contextHolder}
                 <Flex vertical gap="middle" align="center" justify="center">
                     <Col>
-                        <p>GI: {gameIndex}</p>
                     </Col>
                     <Col>
-                        <p>
+                        <>
+                            
+                            <Button onClick={success}>Cusye</Button>
+                        </>
+                    </Col>
+                    <Col>
                             {
                                 isOver
                                     ? 'Game is ove'
-                                    : (gameIndex % 2 === 0 ? firstPlayerName : secondPlayerName) + "'s turn"
+                                    :
+                                    _.filter(items, s => s.isOpened).length === 0 ?
+                                        <div>
+                                            <p>CLICK TILE TO START</p>
+                                            <Spin />
+                                        </div>
+                                        : (gameIndex % 2 === 0 ? firstPlayerName : secondPlayerName) + "'s turn" 
                             }
-
-                        </p>
                     </Col>
                     <Col>
                         <p>Game Status: {gameStatus}</p>
