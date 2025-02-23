@@ -59,7 +59,7 @@ if (nd > -1) {
     let nel = _.clone(tar)
     nel.splice(nd, 1, 'tyh ');
     console.log(nd);
-    console.log('--------');
+    console.log('---==---');
     console.log(nel);
 } else {
     console.log('not found');
